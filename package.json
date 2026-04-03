@@ -8,7 +8,9 @@
     "web": "node index.js web",
     "web:mon": "node index.js web --monitor",
     "docker:build": "docker build -t price-monitor:local .",
-    "docker:up": "docker compose up --build"
+    "docker:up": "sh -c 'if docker compose version >/dev/null 2>&1; then docker compose up --build; else docker-compose up --build; fi'",
+    "docker:up:v2": "docker compose up --build",
+    "docker:up:compose1": "docker-compose up --build"
   },
   "keywords": [],
   "author": "",
