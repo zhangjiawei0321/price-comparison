@@ -1,0 +1,24 @@
+{
+  "name": "maimaimai",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "add": "node index.js add",
+    "run": "node index.js run",
+    "web": "node index.js web",
+    "web:mon": "node index.js web --monitor"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "better-sqlite3": "^12.8.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.0",
+    "express": "^5.2.1",
+    "node-notifier": "^10.0.1",
+    "playwright": "^1.59.1",
+    "yargs": "^18.0.0"
+  }
+}

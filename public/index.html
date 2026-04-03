@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>价格监控</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 16px;
+        color: #111;
+      }
+      .row {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+      }
+      .col-left {
+        width: 628px;
+      }
+      .col-right {
+        flex: 1;
+        min-width: 420px;
+      }
+      /* 左侧表格：约 10 行可视高度，多列可上下滚动；表头吸附 */
+      .table-scroll-wrap {
+        max-height: calc(2.35rem * 10 + 2.85rem);
+        overflow: auto;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: #fff;
+      }
+      .table-scroll-wrap table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        margin: 0;
+      }
+      .table-scroll-wrap thead th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f6f6f6;
+        box-shadow: inset 0 -1px 0 #ddd;
+      }
+      .table-scroll-wrap th,
+      .table-scroll-wrap td {
+        padding: 8px;
+        vertical-align: middle;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        vertical-align: top;
+      }
+      th {
+        background: #f6f6f6;
+        text-align: left;
+      }
+      tr.selected {
+        outline: 2px solid #2b7cff;
+        outline-offset: -2px;
+      }
+      .muted {
+        color: #666;
+      }
+      .warn {
+        color: #c00;
+        font-weight: 700;
+      }
+      .topbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      button {
+        padding: 8px 12px;
+        border: 1px solid #2b7cff;
+        background: #2b7cff;
+        color: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #fff;
+        color: #2b7cff;
+      }
+      button.danger {
+        padding: 4px 8px;
+        font-size: 12px;
+        border-color: #c00;
+        background: #fff;
+        color: #c00;
+      }
+      button.danger:hover {
+        background: #fff5f5;
+      }
+      #chartWrap {
+        background: #fff;
+        border: 1px solid #ddd;
+        padding: 12px;
+        border-radius: 8px;
+      }
+      #meta {
+        margin-bottom: 10px;
+      }
+      a {
+        color: #2b7cff;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .small {
+        font-size: 13px;
+      }
+      #alertPanel {
+        display: none;
+        border: 1px solid #d08080;
+        background: #fff8f8;
+        border-radius: 6px;
+        padding: 6px 10px 8px;
+        margin-bottom: 10px;
+      }
+      #alertPanel.visible {
+        display: block;
+      }
+      #alertPanel .alert-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      #alertPanel h3 {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: #a40000;
+      }
+      #alertPanel .alert-hint {
+        font-size: 11px;
+        color: #888;
+      }
+      #alertList {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .alert-row {
+        display: grid;
+        grid-template-columns: 124px 34px minmax(0, 1fr) max-content;
+        gap: 6px 6px;
+        align-items: center;
+        font-size: 12px;
+        line-height: 1.35;
+        padding: 3px 0;
+        border-top: 1px solid #edd;
+      }
+      .alert-row:first-child {
+        border-top: none;
+        padding-top: 0;
+      }
+      .alert-row .alert-t {
+        color: #555;
+        font-variant-numeric: tabular-nums;
+      }
+      .alert-row .alert-d {
+        color: #c00;
+        font-weight: 600;
+        text-align: right;
+      }
+      .alert-row .alert-n {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .alert-row .alert-p {
+        font-size: 11px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .alert-row .alert-a a {
+        font-size: 11px;
+      }
+      td.cell-name {
+        max-width: 220px;
+        min-width: 100px;
+        vertical-align: bottom;
+        padding-bottom: 6px;
+      }
+      .cell-name-inner {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        max-width: 100%;
+        padding-bottom: 3px;
+        scrollbar-width: thin;
+      }
+      .cell-name-inner::-webkit-scrollbar {
+        height: 6px;
+      }
+      .cell-name-inner::-webkit-scrollbar-thumb {
+        background: #c5c5c5;
+        border-radius: 3px;
+      }
+      td.cell-price {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      td.cell-hist-low {
+        white-space: normal;
+        vertical-align: top;
+        line-height: 1.25;
+      }
+      .cell-hist-low .hist-low-price {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .cell-hist-low .hist-low-date {
+        font-size: 11px;
+        color: #666;
+        margin-top: 3px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      #meta .meta-name-outer {
+        display: inline-block;
+        max-width: min(100%, 540px);
+        vertical-align: bottom;
+      }
+      #meta .meta-name-inner {
+        display: block;
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        padding-bottom: 2px;
+        scrollbar-width: thin;
+      }
+      #meta .meta-name-inner::-webkit-scrollbar {
+        height: 6px;
+      }
+      #meta .meta-name-inner::-webkit-scrollbar-thumb {
+        background: #c5c5c5;
+        border-radius: 3px;
+      }
+      #meta .hist-low-date {
+        font-size: 11px;
+        color: #888;
+      }
+
+      /* 手机 / 窄屏 */
+      @media (max-width: 720px) {
+        body {
+          margin: 10px 12px 24px;
+          margin-left: max(12px, env(safe-area-inset-left));
+          margin-right: max(12px, env(safe-area-inset-right));
+          padding-bottom: env(safe-area-inset-bottom);
+          -webkit-text-size-adjust: 100%;
+        }
+        h2 {
+          font-size: 1.2rem;
+          margin: 0 0 12px;
+        }
+        .row {
+          flex-direction: column;
+          gap: 14px;
+        }
+        .col-left,
+        .col-right {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+        }
+        .topbar {
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .topbar input[type='text'] {
+          flex: 1 1 100%;
+          width: 100%;
+          min-width: 0;
+          font-size: 16px;
+          padding: 10px 12px;
+        }
+        .topbar #addBtn,
+        .topbar #refreshBtn {
+          flex: 1 1 0;
+          min-width: 0;
+          min-height: 44px;
+          padding: 10px 12px;
+        }
+        button,
+        .danger {
+          touch-action: manipulation;
+        }
+        #monitorSettingsBar {
+          padding: 12px !important;
+        }
+        #monitorSettingsBar > div:nth-child(2) {
+          flex-direction: column;
+          align-items: stretch !important;
+          gap: 12px !important;
+        }
+        #monitorSettingsBar label {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+          line-height: 1.5;
+        }
+        #monitorSettingsBar input[type='number'] {
+          width: auto !important;
+          min-width: 5rem;
+          min-height: 44px;
+          font-size: 16px;
+          padding: 8px 10px;
+        }
+        #monitorSettingsBar .monPreset,
+        #monSaveBtn {
+          min-height: 44px;
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+        #monitorSettingsBar .muted {
+          width: 100%;
+        }
+        #monitorSettingsBar #monSaveBtn {
+          width: 100%;
+        }
+        .table-scroll-wrap {
+          max-height: min(48vh, 22rem);
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior-x: contain;
+        }
+        .table-scroll-wrap table {
+          font-size: 12px;
+          min-width: 600px;
+        }
+        .table-scroll-wrap th,
+        .table-scroll-wrap td {
+          padding: 6px 5px;
+        }
+        td.cell-name {
+          max-width: 128px;
+          min-width: 64px;
+        }
+        #alertPanel .alert-head {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+        #alertPanel .alert-hint {
+          line-height: 1.35;
+        }
+        .alert-row {
+          grid-template-columns: 1fr;
+          align-items: start;
+          gap: 4px;
+          padding: 10px 0 10px;
+        }
+        .alert-row .alert-d {
+          text-align: left;
+        }
+        .alert-row .alert-n {
+          white-space: normal;
+          word-break: break-word;
+        }
+        .alert-row .alert-p {
+          white-space: normal;
+          word-break: break-word;
+          max-width: 100%;
+        }
+        #chartWrap {
+          padding: 8px;
+          min-height: 220px;
+          -webkit-overflow-scrolling: touch;
+        }
+        #meta .meta-name-outer {
+          max-width: 100%;
+        }
+        #selectedLink {
+          word-break: break-all;
+          display: inline;
+        }
+        #headfulOptions,
+        #headfulContinueBar {
+          line-height: 1.55 !important;
+        }
+        #headfulContinueBtn {
+          min-height: 44px;
+          margin: 6px 0 !important;
+        }
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h2>价格监控（本地）</h2>
+    <div id="alertPanel">
+      <div class="alert-head">
+        <h3>降价告警（≥5%）</h3>
+        <span class="alert-hint">入库按「相邻上一条」记录 · 本页定时刷新</span>
+      </div>
+      <div id="alertList"></div>
+    </div>
+    <div class="topbar">
+      <input id="urlInput" type="text" placeholder="输入 JD/淘宝/拼多多 商品链接，然后点击添加" />
+      <button id="addBtn">添加</button>
+      <button id="refreshBtn" class="secondary">刷新</button>
+    </div>
+    <div
+      id="headfulOptions"
+      class="small"
+      style="display: none; margin: -6px 0 10px 0; padding: 10px 12px; background: #f7f7f7; border-radius: 8px; line-height: 1.7;"
+    >
+      <div class="muted" style="margin-bottom: 6px;">有界面添加（--headful）时，登录完成后如何继续：</div>
+      <label style="margin-right: 14px"
+        ><input type="radio" name="hrMode" value="auto" checked /> 自动等待</label
+      >
+      <input type="number" id="headfulSec" min="5" max="600" value="30" style="width: 58px; padding: 4px" /> 秒再抓取
+      <label style="margin-left: 16px"
+        ><input type="radio" name="hrMode" value="manual" /> 网页手动点「继续抓取」</label
+      >
+      <label style="margin-left: 16px"
+        ><input type="radio" name="hrMode" value="terminal" /> 终端按 Enter</label
+      >
+    </div>
+    <div
+      id="headfulContinueBar"
+      class="small"
+      style="display: none; margin: -4px 0 12px 0; padding: 10px 12px; background: #fffbeb; border: 1px solid #e8d48b; border-radius: 8px;"
+    >
+      已在 Chrome 打开商品页，登录/验证完成且价格可见后，点
+      <button type="button" id="headfulContinueBtn" style="margin: 0 6px">继续抓取</button>
+      （无需再回到终端）
+    </div>
+    <div id="serverHint" class="small muted" style="margin: -8px 0 12px 0; line-height: 1.45;"></div>
+
+    <div
+      id="monitorSettingsBar"
+      class="small"
+      style="margin: -4px 0 12px 0; padding: 10px 12px; background: #f0f7ff; border: 1px solid #c8d9f0; border-radius: 8px; line-height: 1.6;"
+    >
+      <div style="margin-bottom: 6px; font-weight: 600;">定时抓取</div>
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;">
+        <label
+          >每
+          <input type="number" id="monIntervalSec" min="60" max="604800" step="30" style="width: 92px; padding: 5px" />
+          秒抓一次</label
+        >
+        <span class="muted" style="display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          预设：
+          <button type="button" class="secondary monPreset" data-sec="600">10 分钟</button>
+          <button type="button" class="secondary monPreset" data-sec="1800">30 分钟</button>
+          <button type="button" class="secondary monPreset" data-sec="3600">1 小时</button>
+          <button type="button" class="secondary monPreset" data-sec="7200">2 小时</button>
+          <button type="button" class="secondary monPreset" data-sec="21600">6 小时</button>
+        </span>
+        <label
+          >降价告警阈值
+          <input type="number" id="monDropPct" min="0.1" max="99" step="0.1" style="width: 62px; padding: 5px" />
+          %（相对上一条入库价）</label
+        >
+        <button type="button" id="monSaveBtn">保存设置</button>
+      </div>
+      <div id="monitorSettingsMsg" class="muted" style="margin-top: 8px; font-size: 12px; line-height: 1.45"></div>
+    </div>
+
+    <div class="row">
+      <div class="col-left">
+        <div class="small muted" style="margin-bottom: 8px;">
+          点击一行查看价格曲线；商品名单元格可<strong>横向拖动</strong>看全文；列表约 <strong>10 行</strong>高，可上下滚动。
+        </div>
+        <div class="table-scroll-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 44px;">ID</th>
+                <th style="width: 52px;">平台</th>
+                <th style="width: 220px; max-width: 220px;">商品</th>
+                <th style="width: 76px;">现价</th>
+                <th style="width: 138px;">历史最低</th>
+                <th style="width: 72px;" title="相对「本条最新时间之前的全库最低价」">降幅</th>
+                <th style="width: 52px;"> </th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="small muted" style="margin-top: 6px; line-height: 1.4;">
+          登录态：配置 userDataDir；headful 可用上方「自动等待 / 继续抓取」。
+        </div>
+      </div>
+
+      <div class="col-right">
+        <div id="meta" class="small muted">
+          未选择商品
+        </div>
+        <div id="chartWrap">
+          <canvas id="chart" height="240"></canvas>
+        </div>
+        <div class="small muted" style="margin-top: 10px;">
+          链接：
+          <a id="selectedLink" href="#" target="_blank" rel="noopener noreferrer">-</a>
+        </div>
+        <div class="small muted" style="margin-top: 6px; line-height: 1.4;">
+          表格「降幅」＝相对截至上一次的低价；「降价告警」入库仍按相邻两条记录比较；可另配钉钉等（README）。
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const state = { selectedUrlId: null, chart: null };
+      let configHeadful = false;
+      const LS_HR_MODE = 'price_headfulResumeMode';
+      const LS_HR_SEC = 'price_headfulResumeSeconds';
+
+      function loadHeadfulPrefs() {
+        const m = localStorage.getItem(LS_HR_MODE);
+        const sec = localStorage.getItem(LS_HR_SEC);
+        if (m === 'auto' || m === 'manual' || m === 'terminal') {
+          const el = document.querySelector('input[name="hrMode"][value="' + m + '"]');
+          if (el) el.checked = true;
+        }
+        if (sec && /^\d+$/.test(sec)) {
+          const n = Math.min(600, Math.max(5, Number(sec)));
+          document.getElementById('headfulSec').value = String(n);
+        }
+      }
+
+      function saveHeadfulPrefs() {
+        const c = document.querySelector('input[name="hrMode"]:checked');
+        if (c) localStorage.setItem(LS_HR_MODE, c.value);
+        const s = Number(document.getElementById('headfulSec').value);
+        if (Number.isFinite(s)) localStorage.setItem(LS_HR_SEC, String(Math.min(600, Math.max(5, s))));
+      }
+
+      /** Show stored instant in 北京时间 (works for legacy UTC `...Z` and new `...+08:00`). */
+      function fmtTs(ts) {
+        if (!ts) return '';
+        const d = Date.parse(ts);
+        if (Number.isNaN(d)) return String(ts);
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'Asia/Shanghai',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        }).formatToParts(new Date(d));
+        const get = (t) => parts.find((p) => p.type === t)?.value;
+        return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`;
+      }
+
+      function escapeAttr(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function escHtml(s) {
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      async function fetchAlerts() {
+        const res = await fetch('/api/alerts?limit=12');
+        if (!res.ok) throw new Error('Failed to load alerts');
+        return res.json();
+      }
+
+      function renderAlerts(data) {
+        const panel = document.getElementById('alertPanel');
+        const list = document.getElementById('alertList');
+        const alerts = data && data.alerts ? data.alerts : [];
+        if (!alerts.length) {
+          panel.classList.remove('visible');
+          list.innerHTML = '';
+          return;
+        }
+        panel.classList.add('visible');
+        list.innerHTML = alerts
+          .map((a) => {
+            const titleRaw = String(a.productName || '商品');
+            const title = titleRaw.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+            const when = fmtTs(a.ts);
+            const drop = Number(a.dropPercent).toFixed(1);
+            const pair = (a.prevPriceStr || '—') + '→' + (a.curPriceStr || '—');
+            const tip = escapeAttr(titleRaw + ' · #' + a.urlId + ' · ' + pair);
+            const link = a.url
+              ? '<a href="' +
+                escapeAttr(a.url) +
+                '" target="_blank" rel="noopener noreferrer">链接</a>'
+              : '';
+            return (
+              '<div class="alert-row" title="' +
+              tip +
+              '"><span class="alert-t">' +
+              when +
+              '</span><span class="alert-d">' +
+              drop +
+              '%</span><span class="alert-n">' +
+              title +
+              '</span><span class="alert-p"><span class="muted">' +
+              pair +
+              '</span>' +
+              (link ? ' · ' + link : '') +
+              '</span></div>'
+            );
+          })
+          .join('');
+      }
+
+      function fmtDrop(x) {
+        if (x === null || x === undefined) return '-';
+        const v = Number(x);
+        if (Number.isNaN(v)) return '-';
+        return v.toFixed(2) + '%';
+      }
+
+      /** 表格降幅列：≥5% 标红；低于上次低价（负数）灰色 */
+      function fmtDropCol(x) {
+        if (x === null || x === undefined) return '-';
+        const v = Number(x);
+        if (Number.isNaN(v)) return '-';
+        const s = v.toFixed(2) + '%';
+        if (v >= 5) return '<span class="warn">' + s + '</span>';
+        if (v < 0) return '<span class="muted">' + s + '</span>';
+        return s;
+      }
+
+      /** 京东 / 淘宝 / 天猫 / 拼多多（优先看落地链接，兼容 e.tb.cn 等短链存的 site） */
+      function fmtPlatform(it) {
+        const u = String(it.url || '').toLowerCase();
+        if (u.includes('jd.com')) return '京东';
+        if (u.includes('pinduoduo.com') || u.includes('yangkeduo.com')) return '拼多多';
+        if (u.includes('tmall.com')) return '天猫';
+        if (u.includes('taobao.com') || u.includes('.tb.cn') || u.includes('tb.cn')) return '淘宝';
+        const s = String(it.site || '').toLowerCase();
+        if (s === 'jd') return '京东';
+        if (s === 'taobao') return '淘宝';
+        if (s === 'pinduoduo') return '拼多多';
+        if (s.includes('tmall')) return '天猫';
+        if (s.includes('jd')) return '京东';
+        if (s.includes('pdd') || s.includes('pin')) return '拼多多';
+        return it.site ? String(it.site) : '-';
+      }
+
+      function renderTable(items) {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        for (const it of items) {
+          const tr = document.createElement('tr');
+          tr.dataset.urlid = it.urlId;
+          if (String(it.urlId) === String(state.selectedUrlId)) tr.classList.add('selected');
+
+          const nameEsc = (it.productName || '(空)').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+          const hasHistPrice = it.histLowStr != null && String(it.histLowStr).trim() !== '';
+          const histTsRaw = it.histLowTs != null ? String(it.histLowTs).trim() : '';
+          const histLowCell = hasHistPrice
+            ? '<div class="hist-low-price">' +
+              it.histLowStr +
+              '</div>' +
+              (histTsRaw
+                ? '<div class="hist-low-date">' + fmtTs(histTsRaw) + '</div>'
+                : '')
+            : '—';
+          tr.innerHTML = `
+            <td>${it.urlId}</td>
+            <td>${fmtPlatform(it)}</td>
+            <td class="cell-name"><div class="cell-name-inner">${nameEsc}</div></td>
+            <td class="cell-price">${it.latestPriceStr || '-'}</td>
+            <td class="cell-price cell-hist-low">${histLowCell}</td>
+            <td class="cell-price">${fmtDropCol(it.dropPercent)}</td>
+            <td></td>
+          `;
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'danger';
+          delBtn.textContent = '删除';
+          delBtn.addEventListener('click', async (ev) => {
+            ev.stopPropagation();
+            const name = (it.productName || '(无标题)').slice(0, 40);
+            if (!confirm('确定删除 ID ' + it.urlId + ' ' + name + ' …？\n将同时删除该商品的价格记录与告警。')) return;
+            const res = await fetch('/api/tracked/' + it.urlId, { method: 'DELETE' });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) {
+              alert('删除失败：' + (data.error || res.statusText));
+              return;
+            }
+            if (String(state.selectedUrlId) === String(it.urlId)) {
+              state.selectedUrlId = null;
+              if (state.chart) {
+                state.chart.destroy();
+                state.chart = null;
+              }
+              document.getElementById('meta').textContent = '未选择商品';
+              document.getElementById('selectedLink').href = '#';
+              document.getElementById('selectedLink').textContent = '-';
+            }
+            await refreshAll();
+          });
+          tr.querySelector('td:last-child').appendChild(delBtn);
+
+          tr.addEventListener('click', () => {
+            state.selectedUrlId = it.urlId;
+            renderTable(items);
+            loadHistory(it.urlId);
+            updateMeta(it);
+            document.getElementById('selectedLink').href = it.url;
+            document.getElementById('selectedLink').textContent = it.url;
+          });
+          tbody.appendChild(tr);
+        }
+      }
+
+      function updateMeta(it) {
+        const meta = document.getElementById('meta');
+        if (!it) {
+          meta.textContent = '未选择商品';
+          return;
+        }
+
+        const dropStr =
+          it.dropPercent !== null && it.dropPercent !== undefined && !Number.isNaN(Number(it.dropPercent))
+            ? it.dropPercent.toFixed(1) + '%'
+            : '—';
+        const hasHP = it.histLowStr != null && String(it.histLowStr).trim() !== '';
+        const hTs = it.histLowTs != null ? String(it.histLowTs).trim() : '';
+        const histBlock = hasHP
+          ? it.histLowStr + (hTs ? '<br/><span class="hist-low-date">' + fmtTs(hTs) + '</span>' : '')
+          : '—';
+        const name = escHtml(String(it.productName || '(空)').trim() || '(空)');
+        meta.innerHTML =
+          '<div><strong>' +
+          fmtPlatform(it) +
+          '</strong> · <span class="meta-name-outer"><span class="meta-name-inner">' +
+          name +
+          '</span></span></div>' +
+          '<div class="muted" style="margin-top:5px;font-size:12px;line-height:1.45;">' +
+          '<div>现价 ' +
+          (it.latestPriceStr || '—') +
+          '</div>' +
+          '<div style="margin-top:4px;">历史最低 ' +
+          histBlock +
+          '</div>' +
+          '<div style="margin-top:4px;">降幅 ' +
+          dropStr +
+          ' <span title="相对本条入库前出现过的最低价">(较上次低价)</span> · 上一条 ' +
+          (it.prevPriceStr || '—') +
+          '</div></div>';
+      }
+
+      async function fetchTracked() {
+        const res = await fetch('/api/tracked');
+        if (!res.ok) throw new Error('Failed to load /api/tracked');
+        return res.json();
+      }
+
+      async function loadHistory(urlId) {
+        const limit = 60;
+        const res = await fetch('/api/history/' + urlId + '?limit=' + limit);
+        if (!res.ok) throw new Error('Failed to load history');
+        const data = await res.json();
+
+        const labels = data.points.map(p => fmtTs(p.ts));
+        const prices = data.points.map(p => p.priceCents / 100);
+
+        if (state.chart) state.chart.destroy();
+        const ctx = document.getElementById('chart').getContext('2d');
+        state.chart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: '价格(元)',
+              data: prices,
+              borderWidth: 2,
+              borderColor: '#2b7cff',
+              backgroundColor: 'rgba(43,124,255,0.08)',
+              pointRadius: 3,
+              tension: 0.2
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: true }
+            },
+            scales: {
+              y: {
+                beginAtZero: false
+              }
+            }
+          }
+        });
+      }
+
+      async function loadServerHint() {
+        const el = document.getElementById('serverHint');
+        if (!el) return;
+        try {
+          const r = await fetch('/api/config');
+          if (!r.ok) return;
+          const c = await r.json();
+          let extra = '';
+          if (c.backgroundMonitor && c.intervalSeconds != null) {
+            extra = ` 同一进程内后台抓取已开启：每 ${c.intervalSeconds}s 一轮，降幅告警阈值 ${c.dropPercent != null ? c.dropPercent : 5}%。`;
+          }
+          configHeadful = !!c.headful;
+          const ho = document.getElementById('headfulOptions');
+          if (ho) ho.style.display = c.headful ? 'block' : 'none';
+          if (c.headful) loadHeadfulPrefs();
+
+          if (c.headful && c.userDataDir) {
+            el.className = 'small warn';
+            el.textContent =
+              '当前为 --headful：弹出 Chrome 登录后，请用上方选项选择「自动等待 N 秒」或「网页继续抓取」，默认无需再到终端按 Enter。' +
+              extra;
+          } else if (c.userDataDir) {
+            el.className = 'small muted';
+            el.textContent =
+              '已配置 userDataDir。若无头添加失败，请用命令行执行：node index.js add \"链接\" --userDataDir … --headful' + extra;
+          } else {
+            el.className = 'small muted';
+            el.textContent =
+              '未配置 userDataDir 时京东等站容易失败。建议启动 web 时加上 --userDataDir 指向专用浏览器配置目录。' + extra;
+          }
+        } catch (_) {
+          el.textContent = '';
+        }
+      }
+
+      async function loadMonitorSettingsPanel() {
+        const msg = document.getElementById('monitorSettingsMsg');
+        try {
+          const r = await fetch('/api/monitor-settings');
+          if (!r.ok) return;
+          const s = await r.json();
+          document.getElementById('monIntervalSec').value = String(s.intervalSeconds);
+          document.getElementById('monDropPct').value = String(s.dropPercent);
+          if (msg) {
+            if (s.backgroundMonitorActive) {
+              msg.textContent =
+                '已开启本进程后台抓取：保存后会在「当前这一轮 sleep 结束」起按新间隔执行（无需重启）。';
+            } else {
+              msg.textContent =
+                '当前未加 --monitor；此处保存写入本机数据库，在下次执行 `node index.js web --monitor` 或 `node index.js run` 时生效。';
+            }
+          }
+        } catch (e) {
+          if (msg) msg.textContent = '';
+        }
+      }
+
+      async function refreshAll() {
+        try {
+          const ad = await fetchAlerts();
+          renderAlerts(ad);
+        } catch (e) {
+          console.warn('alerts', e);
+        }
+        try {
+          await loadMonitorSettingsPanel();
+        } catch (_) {}
+        try {
+          await loadServerHint();
+        } catch (_) {}
+        const items = await fetchTracked();
+        renderTable(items);
+        if (!state.selectedUrlId && items.length) {
+          state.selectedUrlId = items[0].urlId;
+          renderTable(items);
+          updateMeta(items[0]);
+          document.getElementById('selectedLink').href = items[0].url;
+          document.getElementById('selectedLink').textContent = items[0].url;
+          await loadHistory(items[0].urlId);
+        } else {
+          const selected = items.find(x => String(x.urlId) === String(state.selectedUrlId));
+          if (selected) {
+            updateMeta(selected);
+            document.getElementById('selectedLink').href = selected.url;
+            document.getElementById('selectedLink').textContent = selected.url;
+            await loadHistory(selected.urlId);
+          }
+        }
+      }
+
+      document.querySelectorAll('input[name="hrMode"]').forEach((el) => {
+        el.addEventListener('change', saveHeadfulPrefs);
+      });
+      document.getElementById('headfulSec').addEventListener('change', saveHeadfulPrefs);
+
+      document.getElementById('headfulContinueBtn').addEventListener('click', () => {
+        fetch('/api/add/continue', { method: 'POST' }).then((r) => {
+          if (!r.ok) r.json().then((d) => alert((d && d.error) || r.statusText)).catch(() => {});
+        });
+      });
+
+      document.getElementById('addBtn').addEventListener('click', async () => {
+        const addBtn = document.getElementById('addBtn');
+        const input = document.getElementById('urlInput');
+        const url = input.value.trim();
+        if (!url) {
+          alert('请输入网址');
+          return;
+        }
+        saveHeadfulPrefs();
+        const modeEl = document.querySelector('input[name="hrMode"]:checked');
+        const mode = modeEl ? modeEl.value : 'auto';
+        const seconds = Math.min(600, Math.max(5, Number(document.getElementById('headfulSec').value) || 30));
+
+        const payload = { url };
+        if (configHeadful) {
+          payload.headfulResumeMode = mode;
+          if (mode === 'auto') payload.headfulResumeSeconds = seconds;
+        }
+
+        const contBar = document.getElementById('headfulContinueBar');
+        if (configHeadful && mode === 'manual') contBar.style.display = 'block';
+
+        const prev = addBtn.textContent;
+        addBtn.disabled = true;
+        addBtn.textContent = '抓取中…';
+        try {
+          const res = await fetch('/api/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) {
+            alert('添加失败：' + (data.error || res.statusText || '未知错误'));
+            return;
+          }
+          input.value = '';
+          await refreshAll();
+        } finally {
+          if (contBar) contBar.style.display = 'none';
+          addBtn.disabled = false;
+          addBtn.textContent = prev;
+        }
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', async () => {
+        await refreshAll();
+      });
+
+      document.querySelectorAll('.monPreset').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const sec = btn.getAttribute('data-sec');
+          if (sec) document.getElementById('monIntervalSec').value = sec;
+        });
+      });
+
+      document.getElementById('monSaveBtn').addEventListener('click', async () => {
+        const intervalSeconds = Number(document.getElementById('monIntervalSec').value);
+        const dropPercent = Number(document.getElementById('monDropPct').value);
+        const res = await fetch('/api/monitor-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intervalSeconds, dropPercent }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          alert(data.error || res.statusText || '保存失败');
+          return;
+        }
+        await loadMonitorSettingsPanel();
+        await loadServerHint();
+      });
+
+      refreshAll().catch((e) => {
+        console.error(e);
+        alert('加载失败：' + e.message);
+      });
+
+      setInterval(() => {
+        fetchAlerts()
+          .then(renderAlerts)
+          .catch((e) => console.warn('alerts poll', e));
+      }, 60000);
+    </script>
+  </body>
+</html>
+
