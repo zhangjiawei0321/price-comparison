@@ -88,22 +88,38 @@ function launchBrowserOptions(headful, useChromeChannel) {
 async function jdExtractLivePriceFromPage(page) {
   const snippet = () => {
     const normNum = (s) => String(s || '').replace(/,/g, '').trim();
+    /** 同一节点内可能出现「划线价 + 现价」，取合理区间内较小者，避免读到高价 */
+    const priceFromText = (raw) => {
+      const t = normNum(raw || '');
+      const nums = [];
+      const re = /(\d+(?:\.\d{1,2})?)/g;
+      let mm;
+      while ((mm = re.exec(t)) !== null) {
+        const n = parseFloat(mm[1], 10);
+        if (!Number.isNaN(n) && n >= 1) nums.push(n);
+      }
+      if (!nums.length) return null;
+      const ge100 = nums.filter((n) => n >= 100);
+      const pool = ge100.length ? ge100 : nums.filter((n) => n >= 10);
+      if (!pool.length) return String(Math.min(...nums));
+      return String(Math.min(...pool));
+    };
     const trySel = (sel) => {
       try {
         const el = document.querySelector(sel);
         if (!el) return null;
-        const t = normNum(el.textContent || '');
-        const m = t.match(/(\d+(?:\.\d{1,2})?)/);
-        if (m && parseFloat(m[1], 10) > 0) return m[1];
-      } catch (_) {}
-      return null;
+        return priceFromText(el.textContent || '');
+      } catch (_) {
+        return null;
+      }
     };
     const sels = [
-      '.summary-price .price',
-      '.itemInfo-wrap .summary-price .price',
       '#jd-price',
+      '#spec-price',
       '.p-price .price',
       '.p-price',
+      '.summary-price .price',
+      '.itemInfo-wrap .summary-price .price',
       '.price.J-price',
       '[class*="J_Price"]',
       '.itemInfo-wrap .price',
@@ -117,7 +133,6 @@ async function jdExtractLivePriceFromPage(page) {
       '[class*="SkuPrice"]',
       '[class*="emphasisPrice"]',
       '.goods-price',
-      '#spec-price',
     ];
     for (const s of sels) {
       const v = trySel(s);
@@ -156,8 +171,13 @@ async function jdExtractLivePriceFromPage(page) {
       if (!Number.isNaN(x) && x >= 1) amounts.push(x);
     }
     if (amounts.length) {
-      const mx = Math.max(...amounts);
-      if (mx >= 5) return String(mx);
+      const hi = amounts.filter((x) => x >= 1000);
+      if (hi.length) return String(Math.min(...hi));
+      const med = amounts.filter((x) => x >= 100);
+      if (med.length) return String(Math.min(...med));
+      const low = amounts.filter((x) => x >= 10);
+      if (low.length) return String(Math.min(...low));
+      return String(Math.min(...amounts));
     }
     return null;
   };
@@ -183,15 +203,29 @@ async function jdExtractLivePriceFromPage(page) {
 async function taobaoExtractLivePriceFromPage(page) {
   const snippet = () => {
     const normNum = (s) => String(s || '').replace(/,/g, '').trim();
+    const priceFromText = (raw) => {
+      const t = normNum(raw || '');
+      const nums = [];
+      const re = /(\d+(?:\.\d{1,2})?)/g;
+      let mm;
+      while ((mm = re.exec(t)) !== null) {
+        const n = parseFloat(mm[1], 10);
+        if (!Number.isNaN(n) && n >= 1) nums.push(n);
+      }
+      if (!nums.length) return null;
+      const ge100 = nums.filter((n) => n >= 100);
+      const pool = ge100.length ? ge100 : nums.filter((n) => n >= 10);
+      if (!pool.length) return String(Math.min(...nums));
+      return String(Math.min(...pool));
+    };
     const trySel = (sel) => {
       try {
         const el = document.querySelector(sel);
         if (!el) return null;
-        const t = normNum(el.textContent || '');
-        const m = t.match(/(\d+(?:\.\d{1,2})?)/);
-        if (m && parseFloat(m[1], 10) > 0) return m[1];
-      } catch (_) {}
-      return null;
+        return priceFromText(el.textContent || '');
+      } catch (_) {
+        return null;
+      }
     };
     const sels = [
       'em.tb-rmb-num',
@@ -212,17 +246,9 @@ async function taobaoExtractLivePriceFromPage(page) {
       '#J_priceStd',
       '.tm-m-price',
     ];
-    const fromSels = [];
     for (const s of sels) {
       const v = trySel(s);
-      if (v) {
-        const n = parseFloat(v, 10);
-        if (!Number.isNaN(n) && n > 0) fromSels.push(n);
-      }
-    }
-    if (fromSels.length) {
-      const mx = Math.max(...fromSels);
-      if (mx >= 5) return String(mx);
+      if (v) return v;
     }
     const body = document.body?.innerText || '';
     for (const raw of body.split(/\n/)) {
@@ -247,8 +273,13 @@ async function taobaoExtractLivePriceFromPage(page) {
       if (!Number.isNaN(x) && x >= 1) amounts.push(x);
     }
     if (amounts.length) {
-      const mx = Math.max(...amounts);
-      if (mx >= 5) return String(mx);
+      const hi = amounts.filter((x) => x >= 1000);
+      if (hi.length) return String(Math.min(...hi));
+      const med = amounts.filter((x) => x >= 100);
+      if (med.length) return String(Math.min(...med));
+      const low = amounts.filter((x) => x >= 10);
+      if (low.length) return String(Math.min(...low));
+      return String(Math.min(...amounts));
     }
     return null;
   };
