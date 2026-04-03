@@ -2,7 +2,11 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const { beijingNowIso } = require('./time');
 
-const DB_PATH = path.join(__dirname, '..', 'prices.db');
+const DB_PATH = (() => {
+  const raw = String(process.env.PRICE_DB_PATH || '').trim();
+  if (raw) return path.resolve(raw);
+  return path.join(__dirname, '..', 'prices.db');
+})();
 
 function openDb() {
   const db = new Database(DB_PATH);

@@ -6,7 +6,9 @@
     "add": "node index.js add",
     "run": "node index.js run",
     "web": "node index.js web",
-    "web:mon": "node index.js web --monitor"
+    "web:mon": "node index.js web --monitor",
+    "docker:build": "docker build -t price-monitor:local .",
+    "docker:up": "docker compose up --build"
   },
   "keywords": [],
   "author": "",

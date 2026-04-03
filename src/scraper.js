@@ -54,18 +54,31 @@ function isPinduoduoFamilyUrl(url) {
   return /pinduoduo\.com|yangkeduo\.com/i.test(String(url || ''));
 }
 
+/**
+ * 有界面或持久 profile 时默认用系统 Chrome（channel=chrome）。
+ * Docker / Linux 无 Chrome 时设 PLAYWRIGHT_CHANNEL=chromium（Playwright 自带）。
+ * 强制只用 Playwright 内置浏览器：PLAYWRIGHT_CHANNEL=bundled
+ */
 function launchBrowserOptions(headful, useChromeChannel) {
   const stealth = {
     args: ['--disable-blink-features=AutomationControlled'],
     ignoreDefaultArgs: ['--enable-automation'],
   };
-  if (headful) {
-    return { headless: false, channel: 'chrome', ...stealth };
+  const needChannel = headful || useChromeChannel;
+  const env = String(process.env.PLAYWRIGHT_CHANNEL || '').trim().toLowerCase();
+  let channel;
+  if (!needChannel) {
+    channel = undefined;
+  } else if (env === 'bundled' || env === 'playwright') {
+    channel = undefined;
+  } else if (env === 'chromium' || env === 'chrome' || env === 'msedge') {
+    channel = env;
+  } else {
+    channel = 'chrome';
   }
-  if (useChromeChannel) {
-    return { headless: true, channel: 'chrome', ...stealth };
-  }
-  return { headless: true, ...stealth };
+  const opts = { ...stealth, headless: !headful };
+  if (channel) opts.channel = channel;
+  return opts;
 }
 
 /**

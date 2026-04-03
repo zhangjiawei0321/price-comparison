@@ -1,0 +1,25 @@
+services:
+  price-monitor:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PLAYWRIGHT_CHANNEL: chromium
+      PRICE_USER_DATA_DIR: /data/profile
+      PRICE_DB_PATH: /data/prices.db
+    volumes:
+      - ./docker-data:/data
+    command:
+      - node
+      - index.js
+      - web
+      - --port
+      - "8000"
+      - --monitor
+      - --intervalSeconds
+      - "3600"
+      - --dropPercent
+      - "5"

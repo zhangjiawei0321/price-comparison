@@ -112,3 +112,45 @@ node index.js web --port 8000 --userDataDir "...\User Data\Default" --headful --
 
 - 价格解析依赖页面结构，站点改版后可能需在 `src/scraper.js` 中调整。
 - **降价告警**对比的是「数据库里**相邻上一条**价格」与「当前抓取」。网页表格另有 **历史最低** 与相对「上次低价」的 **降幅** 列，口径见 `特性说明.md`。
+
+
+启动方式
+方式一：本机 Node（和改之前相同）
+```
+cd x:\maimaimai\price
+npm install
+npx playwright install chromium
+```
+复制 .env.example 为 .env，填 PRICE_USER_DATA_DIR、钉钉等（需要的话）。
+
+网页 + 后台轮询：npm run web:mon 或
+```
+node index.js web --port 8000 --monitor --intervalSeconds 3600 --dropPercent 5 --headful
+```
+只跑定时抓取：npm run run
+加商品：npm run add -- "https://..."（京东等建议加 --headful 先登录）
+未配 Docker、也不需要改 PLAYWRIGHT_CHANNEL 时，不用管 PRICE_DB_PATH，数据库仍在项目根下的 prices.db。
+
+方式二：Docker（依赖都在镜像里）
+安装 Docker Desktop（Windows）或 Docker Engine（Linux）。
+在项目根目录放好 .env（可选，用于 Webhook 等）。Compose 里已写死：
+PLAYWRIGHT_CHANNEL=chromium
+PRICE_USER_DATA_DIR=/data/profile
+PRICE_DB_PATH=/data/prices.db
+数据目录会落在本机 .\docker-data（库和浏览器 profile 都在这里）。
+启动：
+```
+cd x:\maimaimai\price
+npm run docker:up
+```
+或：
+```
+docker compose up --build
+```
+浏览器访问：**http://localhost:8000**（网页 + 默认每 3600 秒一轮监测，与 docker-compose.yml 里 command 一致）。
+
+容器里加链接（示例，把 URL 换成你的）：
+```
+docker compose run --rm price-monitor node index.js add "https://item.jd.com/xxx.html" --headful
+```
+--headful 在无桌面的服务器上一般要配虚拟显示或改用本机 Node 登录一次再把 docker-data/profile 拷过去，这块和改 Docker 之前逻辑一样。

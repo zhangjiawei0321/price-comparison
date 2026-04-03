@@ -1,9 +1,10 @@
-node_modules/
+node_modules
+.git
 .env
+prices.db
 *.db-wal
 *.db-shm
-prices.db
 run-log.txt
 run-log.err.txt
 *.log
-docker-data/
+docker-data
