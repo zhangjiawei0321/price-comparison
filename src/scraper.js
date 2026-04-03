@@ -82,15 +82,48 @@ function launchBrowserOptions(headful, useChromeChannel) {
 }
 
 /**
+ * 商详主文档优先：子 frame 常为广告/推荐，先返回值易误抓低价。
+ */
+async function firstLivePriceFromFrames(page, label, snippet) {
+  const main = page.mainFrame();
+  const frames = page.frames();
+  const ordered = [];
+  if (frames.includes(main)) {
+    ordered.push(main);
+    for (const f of frames) {
+      if (f !== main) ordered.push(f);
+    }
+  } else {
+    ordered.push(...frames);
+  }
+  for (let i = 0; i < ordered.length; i++) {
+    try {
+      const v = await ordered[i].evaluate(snippet);
+      if (v) {
+        if (process.env.SCRAPER_DEBUG === '1') {
+          const mainHit = ordered[i] === main;
+          console.log(`[scraper] ${label} live price from ${mainHit ? 'main' : `child[${i}]`} frame: ${v}`);
+        }
+        return v;
+      }
+    } catch (_) {
+      // cross-origin frame
+    }
+  }
+  return null;
+}
+
+/**
  * 在真实 DOM 里取京东现价（含主站 iframe、常见文案行、千分位）。
  * 新版商详价格常在子 frame 或仅出现在可见文本里。
  */
 async function jdExtractLivePriceFromPage(page) {
   const snippet = () => {
     const normNum = (s) => String(s || '').replace(/,/g, '').trim();
-    /** 同一节点内可能出现「划线价 + 现价」，取合理区间内较小者，避免读到高价 */
+    /** 同一节点内「划线 + 现价」取较小；若含分期/×月则勿取月供（取大者） */
     const priceFromText = (raw) => {
       const t = normNum(raw || '');
+      const rawStr = String(raw || '');
       const nums = [];
       const re = /(\d+(?:\.\d{1,2})?)/g;
       let mm;
@@ -99,6 +132,12 @@ async function jdExtractLivePriceFromPage(page) {
         if (!Number.isNaN(n) && n >= 1) nums.push(n);
       }
       if (!nums.length) return null;
+      const installment =
+        /\d+\s*期|\/\s*月|每期|分期|[×x]\s*\d+\s*期|花呗|白条/.test(rawStr) ||
+        /\d+\s*期|\/\s*月|每期|分期|[×x]\s*\d+\s*期|花呗|白条/.test(t);
+      if (installment && nums.length >= 2) {
+        return String(Math.max(...nums));
+      }
       const ge100 = nums.filter((n) => n >= 100);
       const pool = ge100.length ? ge100 : nums.filter((n) => n >= 10);
       if (!pool.length) return String(Math.min(...nums));
@@ -182,21 +221,7 @@ async function jdExtractLivePriceFromPage(page) {
     return null;
   };
 
-  const frames = page.frames();
-  for (let i = 0; i < frames.length; i++) {
-    try {
-      const v = await frames[i].evaluate(snippet);
-      if (v) {
-        if (process.env.SCRAPER_DEBUG === '1') {
-          console.log(`[scraper] jd live price from frame[${i}]: ${v}`);
-        }
-        return v;
-      }
-    } catch (_) {
-      // cross-origin frame
-    }
-  }
-  return null;
+  return firstLivePriceFromFrames(page, 'jd', snippet);
 }
 
 /** 淘宝/天猫商详 DOM 取价（与新套件类名、老 .tb-rmb-num 等兼容） */
@@ -205,6 +230,7 @@ async function taobaoExtractLivePriceFromPage(page) {
     const normNum = (s) => String(s || '').replace(/,/g, '').trim();
     const priceFromText = (raw) => {
       const t = normNum(raw || '');
+      const rawStr = String(raw || '');
       const nums = [];
       const re = /(\d+(?:\.\d{1,2})?)/g;
       let mm;
@@ -213,6 +239,12 @@ async function taobaoExtractLivePriceFromPage(page) {
         if (!Number.isNaN(n) && n >= 1) nums.push(n);
       }
       if (!nums.length) return null;
+      const installment =
+        /\d+\s*期|\/\s*月|每期|分期|[×x]\s*\d+\s*期|花呗|白条/.test(rawStr) ||
+        /\d+\s*期|\/\s*月|每期|分期|[×x]\s*\d+\s*期|花呗|白条/.test(t);
+      if (installment && nums.length >= 2) {
+        return String(Math.max(...nums));
+      }
       const ge100 = nums.filter((n) => n >= 100);
       const pool = ge100.length ? ge100 : nums.filter((n) => n >= 10);
       if (!pool.length) return String(Math.min(...nums));
@@ -284,19 +316,7 @@ async function taobaoExtractLivePriceFromPage(page) {
     return null;
   };
 
-  const frames = page.frames();
-  for (let i = 0; i < frames.length; i++) {
-    try {
-      const v = await frames[i].evaluate(snippet);
-      if (v) {
-        if (process.env.SCRAPER_DEBUG === '1') {
-          console.log(`[scraper] taobao live price from frame[${i}]: ${v}`);
-        }
-        return v;
-      }
-    } catch (_) {}
-  }
-  return null;
+  return firstLivePriceFromFrames(page, 'taobao', snippet);
 }
 
 /**
