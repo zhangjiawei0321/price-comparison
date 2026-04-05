@@ -274,13 +274,17 @@ async function addUrl(url, { userDataDir, headful, headfulResume } = {}) {
       priceCents: parsed.price.priceCents,
       currency: parsed.price.currency || 'CNY',
       rawPrice: parsed.price.rawPrice,
+      listPriceCents: parsed.price.listPriceCents,
+      listRawPrice: parsed.price.listRawPrice,
     });
   }
 
   const pstr =
     parsed.price && parsed.price.priceCents > 0 ? priceCentsToStr(parsed.price.priceCents) : 'none';
+  const listStr =
+    parsed.price && parsed.price.listPriceCents > 0 ? ` 标价${priceCentsToStr(parsed.price.listPriceCents)}` : '';
   console.log(
-    `[add] urlId=${row.id} site=${row.site} price=${pstr} productName=${row.product_name || parsed.productName || '(empty)'}`
+    `[add] urlId=${row.id} site=${row.site} price=${pstr}${listStr} productName=${row.product_name || parsed.productName || '(empty)'}`
   );
   return row;
 }
@@ -333,6 +337,8 @@ async function monitorOnce({ userDataDir, dropPercent, headful }) {
       priceCents: parsed.price.priceCents,
       currency: parsed.price.currency || 'CNY',
       rawPrice: parsed.price.rawPrice,
+      listPriceCents: parsed.price.listPriceCents,
+      listRawPrice: parsed.price.listRawPrice,
     });
 
     const prevCents = prev ? prev.price_cents : null;

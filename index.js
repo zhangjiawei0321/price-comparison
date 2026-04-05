@@ -6,6 +6,7 @@ const yargs = require('yargs/yargs');
 const { addUrl, listUrls, startMonitoring } = require('./src/monitor');
 const { startWebServer } = require('./src/server');
 const { deleteTrackedUrl } = require('./src/db');
+const { parseProductOnce } = require('./src/scraper');
 
 /** CLI `--userDataDir` 优先；否则读环境变量 PRICE_USER_DATA_DIR 或 USER_DATA_DIR（见 .env）。 */
 function resolveUserDataDir(cliValue) {
@@ -73,6 +74,67 @@ yargs(hideBin(process.argv))
         process.exit(1);
       }
       console.log(`[remove] ok id=${argv.id}`);
+      process.exit(0);
+    })
+  )
+  .command(
+    'debug-jd <url>',
+    'Print JD price extraction diagnostics (enables JD_PRICE_DEBUG + SCRAPER_DEBUG)',
+    (y) => {
+      y.positional('url', { type: 'string', describe: 'JD item URL' });
+      y.option('userDataDir', {
+        type: 'string',
+        describe: 'Reuse browser profile dir (default: PRICE_USER_DATA_DIR in .env)',
+      });
+      y.option('headful', {
+        type: 'boolean',
+        default: false,
+        describe: 'Show Chrome (recommended if page needs login/verify)',
+      });
+    },
+    withAsync(async (argv) => {
+      process.env.JD_PRICE_DEBUG = '1';
+      process.env.SCRAPER_DEBUG = '1';
+      const r = await parseProductOnce(argv.url, {
+        userDataDir: resolveUserDataDir(argv.userDataDir),
+        headful: argv.headful,
+      });
+      console.log('[debug-jd] parseProductOnce result:', {
+        finalUrl: r.finalUrl,
+        productName: r.productName,
+        price: r.price,
+        htmlWasCaptcha: r.htmlWasCaptcha,
+      });
+      process.exit(0);
+    })
+  )
+  .command(
+    'debug-tb <url>',
+    'Print Taobao/Tmall price extraction diagnostics (enables SCRAPER_DEBUG)',
+    (y) => {
+      y.positional('url', { type: 'string', describe: 'Taobao or Tmall item URL' });
+      y.option('userDataDir', {
+        type: 'string',
+        describe: 'Reuse browser profile dir (default: PRICE_USER_DATA_DIR in .env)',
+      });
+      y.option('headful', {
+        type: 'boolean',
+        default: false,
+        describe: 'Show Chrome (recommended for login/slider verify)',
+      });
+    },
+    withAsync(async (argv) => {
+      process.env.SCRAPER_DEBUG = '1';
+      const r = await parseProductOnce(argv.url, {
+        userDataDir: resolveUserDataDir(argv.userDataDir),
+        headful: argv.headful,
+      });
+      console.log('[debug-tb] parseProductOnce result:', {
+        finalUrl: r.finalUrl,
+        productName: r.productName,
+        price: r.price,
+        htmlWasCaptcha: r.htmlWasCaptcha,
+      });
       process.exit(0);
     })
   )

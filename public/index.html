@@ -498,7 +498,7 @@
                 <th style="width: 44px;">ID</th>
                 <th style="width: 52px;">平台</th>
                 <th style="width: 220px; max-width: 220px;">商品</th>
-                <th style="width: 76px;">现价</th>
+                <th style="width: 88px;" title="主价为实付/国补后；若有标价会显示在下方">现价</th>
                 <th style="width: 138px;">历史最低</th>
                 <th style="width: 72px;" title="相对「本条最新时间之前的全库最低价」">降幅</th>
                 <th style="width: 52px;"> </th>
@@ -692,11 +692,18 @@
                 ? '<div class="hist-low-date">' + fmtTs(histTsRaw) + '</div>'
                 : '')
             : '—';
+          const listLine =
+            it.latestListPriceStr != null && String(it.latestListPriceStr).trim() !== ''
+              ? '<div class="muted" style="font-size:11px;line-height:1.25;margin-top:2px;">标价 ' +
+                it.latestListPriceStr +
+                '</div>'
+              : '';
+          const priceCell = (it.latestPriceStr || '—') + listLine;
           tr.innerHTML = `
             <td>${it.urlId}</td>
             <td>${fmtPlatform(it)}</td>
             <td class="cell-name"><div class="cell-name-inner">${nameEsc}</div></td>
-            <td class="cell-price">${it.latestPriceStr || '-'}</td>
+            <td class="cell-price">${priceCell}</td>
             <td class="cell-price cell-hist-low">${histLowCell}</td>
             <td class="cell-price">${fmtDropCol(it.dropPercent)}</td>
             <td></td>
@@ -759,6 +766,10 @@
           ? it.histLowStr + (hTs ? '<br/><span class="hist-low-date">' + fmtTs(hTs) + '</span>' : '')
           : '—';
         const name = escHtml(String(it.productName || '(空)').trim() || '(空)');
+        const listMeta =
+          it.latestListPriceStr != null && String(it.latestListPriceStr).trim() !== ''
+            ? '<div style="margin-top:3px;">标价 <span class="muted">' + it.latestListPriceStr + '</span></div>'
+            : '';
         meta.innerHTML =
           '<div><strong>' +
           fmtPlatform(it) +
@@ -766,9 +777,10 @@
           name +
           '</span></span></div>' +
           '<div class="muted" style="margin-top:5px;font-size:12px;line-height:1.45;">' +
-          '<div>现价 ' +
+          '<div>实付/主价 ' +
           (it.latestPriceStr || '—') +
           '</div>' +
+          listMeta +
           '<div style="margin-top:4px;">历史最低 ' +
           histBlock +
           '</div>' +

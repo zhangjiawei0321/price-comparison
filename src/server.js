@@ -119,6 +119,7 @@ function startWebServer({ port, userDataDir, headful, backgroundMonitor = null }
         );
       }
       if (latest) {
+        const listC = latest.list_price_cents != null ? latest.list_price_cents : null;
         out.push({
           urlId: t.id,
           url: t.url,
@@ -127,6 +128,8 @@ function startWebServer({ port, userDataDir, headful, backgroundMonitor = null }
           latestTs: latest.ts,
           latestPriceCents: latest.price_cents,
           latestPriceStr: priceCentsToStr(latest.price_cents),
+          latestListPriceCents: listC != null && listC > 0 ? listC : null,
+          latestListPriceStr: listC != null && listC > 0 ? priceCentsToStr(listC) : null,
           prevPriceCents: prev ? prev.price_cents : null,
           prevPriceStr: prev ? priceCentsToStr(prev.price_cents) : null,
           histLowCents: histLowCents != null ? histLowCents : null,
@@ -143,6 +146,8 @@ function startWebServer({ port, userDataDir, headful, backgroundMonitor = null }
           latestTs: null,
           latestPriceCents: null,
           latestPriceStr: null,
+          latestListPriceCents: null,
+          latestListPriceStr: null,
           prevPriceCents: prev ? prev.price_cents : null,
           prevPriceStr: prev ? priceCentsToStr(prev.price_cents) : null,
           histLowCents: histLowCents != null ? histLowCents : null,

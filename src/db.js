@@ -52,6 +52,14 @@ function openDb() {
       value TEXT NOT NULL
     );
   `);
+  const cols = db.prepare('PRAGMA table_info(price_points)').all();
+  const colNames = new Set(cols.map((c) => c.name));
+  if (!colNames.has('list_price_cents')) {
+    db.exec('ALTER TABLE price_points ADD COLUMN list_price_cents INTEGER');
+  }
+  if (!colNames.has('list_raw_price')) {
+    db.exec('ALTER TABLE price_points ADD COLUMN list_raw_price TEXT');
+  }
   return db;
 }
 
@@ -105,7 +113,7 @@ function getLatestPoint(urlId) {
   const row = db
     .prepare(
       `
-      SELECT ts, price_cents, currency, raw_price
+      SELECT ts, price_cents, currency, raw_price, list_price_cents, list_raw_price
       FROM price_points
       WHERE url_id = ?
       ORDER BY ts DESC
@@ -122,7 +130,7 @@ function getPrevPoint(urlId) {
   const row = db
     .prepare(
       `
-      SELECT ts, price_cents, currency, raw_price
+      SELECT ts, price_cents, currency, raw_price, list_price_cents, list_raw_price
       FROM price_points
       WHERE url_id = ?
       ORDER BY ts DESC
@@ -196,14 +204,19 @@ function getMinPriceBeforeLatestTs(urlId) {
   return row && row.m != null ? row.m : null;
 }
 
-function insertPricePoint({ urlId, ts, priceCents, currency, rawPrice }) {
+function insertPricePoint({ urlId, ts, priceCents, currency, rawPrice, listPriceCents, listRawPrice }) {
   const db = openDb();
+  const listC =
+    listPriceCents != null && Number.isFinite(Number(listPriceCents)) && Number(listPriceCents) > 0
+      ? Math.round(Number(listPriceCents))
+      : null;
+  const listR = listC != null && listRawPrice != null && String(listRawPrice).trim() ? String(listRawPrice).trim() : null;
   db.prepare(
     `
-    INSERT INTO price_points (url_id, ts, price_cents, currency, raw_price)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO price_points (url_id, ts, price_cents, currency, raw_price, list_price_cents, list_raw_price)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     `
-  ).run(urlId, ts, priceCents, currency, rawPrice || null);
+  ).run(urlId, ts, priceCents, currency, rawPrice || null, listC, listR);
   db.close();
 }
 
@@ -263,7 +276,7 @@ function getHistory(urlId, limit = 48) {
   const rows = db
     .prepare(
       `
-      SELECT ts, price_cents
+      SELECT ts, price_cents, list_price_cents, list_raw_price
       FROM price_points
       WHERE url_id = ?
       ORDER BY ts DESC
@@ -278,6 +291,9 @@ function getHistory(urlId, limit = 48) {
     ts: r.ts,
     priceCents: r.price_cents,
     priceStr: priceCentsToStr(r.price_cents),
+    listPriceCents: r.list_price_cents != null ? r.list_price_cents : null,
+    listPriceStr:
+      r.list_price_cents != null && r.list_price_cents > 0 ? priceCentsToStr(r.list_price_cents) : null,
   }));
 }
 

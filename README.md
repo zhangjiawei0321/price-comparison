@@ -153,7 +153,7 @@ npm run docker:up
 ```
 npm run docker:up:compose1 #上一个命令不能用的情况下，需要安装sudo apt-get install -y docker-compose
 ```
-浏览器访问：**http://localhost:8000**（网页 + 默认每 3600 秒一轮监测，与 docker-compose.yml 里 command 一致）。
+浏览器访问：**http://localhost:8012**（网页 + 默认每 3600 秒一轮监测，与 docker-compose.yml 里 command 一致）。
 
 
 容器里加链接（示例，把 URL 换成你的）：
@@ -161,3 +161,21 @@ npm run docker:up:compose1 #上一个命令不能用的情况下，需要安装s
 docker compose run --rm price-monitor node index.js add "https://item.jd.com/xxx.html" --headful
 ```
 --headful 在无桌面的服务器上一般要配虚拟显示或改用本机 Node 登录一次再把 docker-data/profile 拷过去，这块和改 Docker 之前逻辑一样。
+
+## 调试
+### 京东调试方法
+```
+node index.js debug-jd "https://item.jd.com/xxx.html" --headful
+```
+使用这条命令可以调试京东链接价格的正确性。
+
+### 淘宝调试方法
+```
+node index.js debug-tb "https://detail.tmall.com/xxx.html" --headful
+```
+
+##提交日志
+2026-04-05
+1.添加调试方法
+2.修改读取价格错误及添加优惠价和正常价
+3.当被风控时读取到的价格不计入，因此可以从波动图中看到有没有被风控。
