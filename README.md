@@ -1,6 +1,7 @@
 # JD / 淘宝 / 拼多多 价格监控（本地）
 
 **完整特性与行为说明见 [特性说明.md](./特性说明.md)。**
+**登录态落地方案见 [登录态管理方案.md](./登录态管理方案.md)。**
 
 ## 功能
 
@@ -81,30 +82,96 @@ ALERT_WEBHOOK_FORMAT=plain
 --userDataDir "C:\Users\你的用户名\AppData\Local\Google\Chrome\User Data\Default"
 ```
 
-## 常用命令
+更推荐使用独立目录并按文档执行初始化、续期与排障流程：[登录态管理方案.md](./登录态管理方案.md)。
 
-### CLI 添加链接
-
-```powershell
-node index.js add "https://..." --userDataDir "...\User Data\Default"
-```
-
-### 定时轮询（默认 3600 秒、降幅 5%）
+### 一次初始化登录（推荐先执行）
 
 ```powershell
-node index.js run --userDataDir "...\User Data\Default" --intervalSeconds 3600 --dropPercent 5
+npm.cmd run login:init -- --site jd --waitSeconds 180   
 ```
 
-### 本地网页：录入链接 + 看曲线 + 看告警
+可选站点：`jd` / `taobao` / `pdd`，也可传 `--url "https://..."` 指定页面。
+
+### 登录态快速自检
 
 ```powershell
-node index.js web --port 8000 --userDataDir "...\User Data\Default"
+npm.cmd run login:check -- --limit 5
 ```
 
-### 启动本地网页：录入链接 + 看曲线 + 看告警 + 有头模式 + 定时轮询
+会检查前 N 个监控链接，输出 `ok=yes/no`，用于快速判断是否需要重新 `--headful` 登录。
+
+按监控 ID 定点自检（支持多个）：
+
+```powershell
+npm.cmd run login:check -- --id 3
+npm.cmd run login:check -- --id 3,8,15
 ```
-node index.js web --port 8000 --userDataDir "...\User Data\Default" --headful --monitor
+
+### 改造后推荐流程（每日可照抄）
+
+1. 准备好 `.env` 的 `PRICE_USER_DATA_DIR`（固定目录，建议和日常 Chrome 隔离）。
+2. 首次运行或登录疑似失效时，先执行初始化登录：
+
+```powershell
+npm.cmd run login:init -- --site jd --waitSeconds 180
 ```
+
+3. 做一次快速自检：
+
+```powershell
+npm.cmd run login:check -- --limit 5
+```
+
+4. 通过后启动监控：
+
+```powershell
+npm.cmd run run
+```
+
+或：
+
+```powershell
+npm.cmd run web:mon
+```
+
+### 遇到风控时的处理步骤
+
+出现以下任一情况，视为风控/登录态异常：
+
+- 控制台出现 `maybe blocked/captcha`
+- `login:check` 输出 `ok=no`
+- 风控提醒提示“本次未写入新价格”
+
+处理顺序：
+
+1. 停止当前监控进程（避免持续触发）。
+2. 重新做一次有头登录/验证（必要时延长等待）：
+
+```powershell
+npm run login:init -- --site jd --waitSeconds 240
+```
+
+淘宝/天猫可改为：
+
+```powershell
+npm run login:init -- --site taobao --waitSeconds 240
+```
+
+3. 重新自检，确认大多数链接恢复 `ok=yes`：
+
+```powershell
+npm run login:check -- --limit 5
+```
+
+4. 再恢复 `run` 或 `web:mon` 监控。
+
+实用建议：
+
+- 同一时刻只保留一个监控实例，避免抢占同一 profile。
+- 不要并发运行多个命令使用同一个 `PRICE_USER_DATA_DIR`。
+- 默认保留 `JD_MONITOR_GAP_SECONDS=30`、`RISK_WEBHOOK_COOLDOWN_SECONDS=3600`。
+
+
 
 浏览器打开：`http://localhost:8000`
 
@@ -114,53 +181,6 @@ node index.js web --port 8000 --userDataDir "...\User Data\Default" --headful --
 - **降价告警**对比的是「数据库里**相邻上一条**价格」与「当前抓取」。网页表格另有 **历史最低** 与相对「上次低价」的 **降幅** 列，口径见 `特性说明.md`。
 
 
-## 启动方式
-### 方式一：本机 Node（和改之前相同）
-```
-cd x:\maimaimai\price
-npm install
-npx playwright install chromium
-```
-复制 .env.example 为 .env，填 PRICE_USER_DATA_DIR、钉钉等（需要的话）。
-
-网页 + 后台轮询：npm run web:mon 或
-```
-node index.js web --port 8000 --monitor --intervalSeconds 3600 --dropPercent 5 --headful
-```
-只跑定时抓取：npm run run
-加商品：npm run add -- "https://..."（京东等建议加 --headful 先登录）
-未配 Docker、也不需要改 PLAYWRIGHT_CHANNEL 时，不用管 PRICE_DB_PATH，数据库仍在项目根下的 prices.db。
-
-### 方式二：Docker（依赖都在镜像里） Linux方案
-
-Linux按照docker 
-使用docker info检验 如果显示没有权限，在Ubuntu里执行sudo usermod -aG docker $USER 然后重启
-
-在项目根目录放好 .env（可选，用于 Webhook 等）。Compose 里已写死：
-```
-PLAYWRIGHT_CHANNEL=chromium
-PRICE_USER_DATA_DIR=/data/profile
-PRICE_DB_PATH=/data/prices.db
-WEB_PORT=8002 #浏览器port
-```
-数据目录会落在本机 .\docker-data（库和浏览器 profile 都在这里）。
-启动：
-```
-cd x:\maimaimai\price
-npm run docker:up
-```
-或：
-```
-npm run docker:up:compose1 #上一个命令不能用的情况下，需要安装sudo apt-get install -y docker-compose
-```
-浏览器访问：**http://localhost:8012**（网页 + 默认每 3600 秒一轮监测，与 docker-compose.yml 里 command 一致）。
-
-
-容器里加链接（示例，把 URL 换成你的）：
-```
-docker compose run --rm price-monitor node index.js add "https://item.jd.com/xxx.html" --headful
-```
---headful 在无桌面的服务器上一般要配虚拟显示或改用本机 Node 登录一次再把 docker-data/profile 拷过去，这块和改 Docker 之前逻辑一样。
 
 ## 调试
 ### 京东调试方法
@@ -179,3 +199,5 @@ node index.js debug-tb "https://detail.tmall.com/xxx.html" --headful
 1.添加调试方法
 2.修改读取价格错误及添加优惠价和正常价
 3.当被风控时读取到的价格不计入，因此可以从波动图中看到有没有被风控。
+2026-04-05
+1.添加登录管理，使用 登录态 / 验证码 这一节的方法

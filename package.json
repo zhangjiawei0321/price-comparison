@@ -4,6 +4,8 @@
   "main": "index.js",
   "scripts": {
     "add": "node index.js add",
+    "login:init": "node index.js login:init",
+    "login:check": "node index.js login:check",
     "run": "node index.js run",
     "web": "node index.js web",
     "web:mon": "node index.js web --monitor",
