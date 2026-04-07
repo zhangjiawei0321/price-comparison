@@ -1,4 +1,7 @@
 require('dotenv').config({ quiet: true });
+const winConsole = require('./src/win-console-gbk');
+winConsole.trySetConsoleCodePage65001();
+winConsole.tryEnableWinConsoleGbk();
 
 const { hideBin } = require('yargs/helpers');
 const yargs = require('yargs/yargs');

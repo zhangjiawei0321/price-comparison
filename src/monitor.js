@@ -280,11 +280,15 @@ async function addUrl(url, { userDataDir, headful, headfulResume } = {}) {
   }
 
   const pstr =
-    parsed.price && parsed.price.priceCents > 0 ? priceCentsToStr(parsed.price.priceCents) : 'none';
+    parsed.price && parsed.price.priceCents > 0
+      ? `${(parsed.price.priceCents / 100).toFixed(2)} CNY`
+      : 'none';
   const listStr =
-    parsed.price && parsed.price.listPriceCents > 0 ? ` 标价${priceCentsToStr(parsed.price.listPriceCents)}` : '';
+    parsed.price && parsed.price.listPriceCents > 0
+      ? ` list=${(parsed.price.listPriceCents / 100).toFixed(2)} CNY`
+      : '';
   console.log(
-    `[add] urlId=${row.id} site=${row.site} price=${pstr}${listStr} productName=${row.product_name || parsed.productName || '(empty)'}`
+    `[add] urlId=${row.id} site=${row.site} price=${pstr}${listStr} name=${row.product_name || parsed.productName || '(empty)'}`
   );
   return row;
 }
@@ -301,9 +305,37 @@ async function listUrls() {
   }
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isJdTrackedRow(t) {
+  return t && (t.site === 'jd' || getSiteFromUrl(t.url) === 'jd');
+}
+
+/** 两条相邻京东监控之间的间隔（同一轮 monitorOnce 内），减轻连开多个详情页触发的风控；默认 30s。 */
+function jdMonitorGapMs() {
+  const raw = String(env.JD_MONITOR_GAP_SECONDS ?? '').trim();
+  if (raw === '0' || /^off|false$/i.test(raw)) return 0;
+  if (raw !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.min(600, Math.max(1, Math.floor(n))) * 1000;
+  }
+  return 30000;
+}
+
 async function monitorOnce({ userDataDir, dropPercent, headful }) {
   const tracked = listTrackedUrls();
-  for (const t of tracked) {
+  const jdGap = jdMonitorGapMs();
+  for (let i = 0; i < tracked.length; i++) {
+    const t = tracked[i];
+    const prevRow = tracked[i - 1];
+    if (i > 0 && jdGap > 0 && isJdTrackedRow(prevRow) && isJdTrackedRow(t)) {
+      console.log(
+        `[monitor] JD spacing: sleeping ${jdGap / 1000}s before next JD (set JD_MONITOR_GAP_SECONDS, 0=off)`
+      );
+      await sleep(jdGap);
+    }
     const urlId = t.id;
     const prev = getLatestPoint(urlId);
     let parsed;

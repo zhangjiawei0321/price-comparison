@@ -960,32 +960,34 @@ async function fetchHtmlUnlocked(productUrl, userDataDir, headful = false, headf
     throw e;
   }
 
-  const page = await browser.newPage();
+  let page;
+  try {
+    page = await browser.newPage();
 
-  const waitUntil = isJd || isTb || isPdd ? 'load' : 'domcontentloaded';
-  await page.goto(productUrl, { waitUntil, timeout: 120000 });
+    // 京东等站常见长连接/埋点导致 window「load」长期不触发，用 domcontentloaded 避免 120s 误杀；后续仍有 waitForFunction / 脚本解析兜底。
+    const waitUntil = isJd ? 'domcontentloaded' : isTb || isPdd ? 'load' : 'domcontentloaded';
+    await page.goto(productUrl, { waitUntil, timeout: 120000 });
 
   if (headful) {
     if (headfulResume && headfulResume.kind === 'timeout') {
       const ms = Math.max(0, headfulResume.ms || 0);
-      console.log(`[headful] 网页「自动等待」${ms / 1000}s 后继续抓取…`);
+      console.log(`[headful] auto-wait ${ms / 1000}s then continue scrape`);
       await new Promise((r) => setTimeout(r, ms));
     } else if (headfulResume && headfulResume.kind === 'webPromise' && headfulResume.promise) {
-      console.log('[headful] 等待网页端「继续抓取」或 POST /api/add/continue …');
+      console.log('[headful] waiting for POST /api/add/continue or UI continue…');
       await headfulResume.promise;
     } else {
       const autoMs = Number(process.env.HEADFUL_AUTO_WAIT_MS || 0);
       if (process.stdin.isTTY && !autoMs) {
         console.log('');
         console.log(
-          '[headful] 已在浏览器中打开商品页。请在弹出的 Chrome 里完成登录/验证，确认标题与价格可见后，到【本机运行 node 的这个终端窗口】按 Enter 才会继续抓取并写入数据库（不是浏览器里按回车）。'
+          '[headful] Chrome opened: finish login/verify in the browser, then press Enter in THIS terminal (not in Chrome) to scrape and save.'
         );
-        await waitForEnter('按 Enter 继续抓取… > ');
+        await waitForEnter('Press Enter to continue scraping > ');
       } else {
         const ms = autoMs > 0 ? autoMs : 180000;
         console.log(
-          `[headful] 当前 stdin 非交互（例如从 IDE 启动 web），将自动等待 ${ms / 1000}s 再抓取。` +
-            `若登录较慢，请设置环境变量 HEADFUL_AUTO_WAIT_MS=300000，或改用 PowerShell/CMD 直接运行 node 以在终端按 Enter。\n`
+          `[headful] stdin not a TTY (e.g. IDE); auto-wait ${ms / 1000}s. Set HEADFUL_AUTO_WAIT_MS=300000 if login is slow, or run node from a real terminal + Enter.\n`
         );
         await new Promise((r) => setTimeout(r, ms));
       }
@@ -1095,17 +1097,17 @@ async function fetchHtmlUnlocked(productUrl, userDataDir, headful = false, headf
     }
   }
 
-  const finalUrl = page.url();
-  const html = await page.content();
-
-  try {
-    await page.close();
-  } catch (_) {}
-  try {
-    await browser.close();
-  } catch (_) {}
-
-  return { finalUrl, html, livePriceRaw, liveListPriceRaw };
+    const finalUrl = page.url();
+    const html = await page.content();
+    return { finalUrl, html, livePriceRaw, liveListPriceRaw };
+  } finally {
+    try {
+      if (page) await page.close();
+    } catch (_) {}
+    try {
+      if (browser) await browser.close();
+    } catch (_) {}
+  }
 }
 
 function findFirstString(obj, keySet) {
